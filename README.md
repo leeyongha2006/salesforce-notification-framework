@@ -57,6 +57,34 @@ flowchart LR
 - 2GP 관리형 패키지로 버전 빌드, 패키지에 넣으면 안 되는 Credential은 별도 배포로 분리
 - PRD, 운영 가이드, 사용 안내 페이지 작성
 
+## 예제 코드
+
+중복 발송 문제를 해결한 판정 방식을 **독립적으로 다시 구현한 예제**입니다. 회사 코드가 아니며, 표준 오브젝트(Opportunity)로 동작을 확인할 수 있습니다.
+
+| 파일 | 역할 |
+|---|---|
+| [`RuleExpression.cls`](force-app/main/default/classes/RuleExpression.cls) | SOQL WHERE 형식의 조건식(비교, LIKE, NULL, AND / OR / NOT, 괄호)을 메모리에서 계산 |
+| [`RuleTransition.cls`](force-app/main/default/classes/RuleTransition.cls) | 수정 전 값으로 조건식을 다시 계산해 **거짓 → 참으로 바뀐 경우에만** 알림. 해석할 수 없는 식은 "조건 필드가 바뀌었는가" 로 판단 |
+| `*_Test.cls` | 테스트 13개 — 중복 발송 사례, null → 값 변경, 생성, 지원하지 않는 문법 등 |
+
+```apex
+// 이미 Closed Won 인 기회에서 금액만 바뀌면 → false (다시 보내지 않음)
+RuleTransition.shouldNotify(
+    'StageName = \'Closed Won\' OR Amount >= 1000',
+    oldOpportunity,
+    newOpportunity
+);
+```
+
+### 직접 실행
+
+```bash
+sf org create scratch -f config/project-scratch-def.json -a rule-demo
+sf project deploy start -o rule-demo -d force-app --test-level RunLocalTests
+```
+
+스크래치 org 에서 테스트 13개 통과, 커버리지 94% (2026-10-30 확인).
+
 ## 배운 점
 
 - 알림은 "보내는 것"보다 **"보내지 말아야 할 때 안 보내는 것"** 이 더 어렵다는 것
